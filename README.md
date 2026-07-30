@@ -1,7 +1,6 @@
 # Telnet Command Executor
 
-![Python](https://img.shields.io/badge/python-3.x-blue) ![License](https://img.shields.io/badge/license-MIT-green)
-
+![Python](https://img.shields.io/badge/python-3.x-blue)
 A small Python utility that connects to one or more hosts over TCP, mimics native `telnet` output, sends a command (default: `help`), and prints the response. Useful for quickly fingerprinting/interacting with plaintext services across a list of hosts and ports during recon.
 
 ---
