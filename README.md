@@ -78,5 +78,3 @@ Connection closed by foreign host.
 - If a host is unreachable, refuses the connection, or times out, the tool prints a `telnet:`-style error and moves on to the next target/port.
 
 ---
-
-<sub>Built for internal recon/pentesting workflows.</sub>
