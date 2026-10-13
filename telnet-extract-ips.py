@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Find hosts that leaked a service banner/version in telnet_scan.py output."""
+"""Find hosts whose SSH banner discloses detailed version info (patch/OS), not just the bare version."""
 
 import re
 import sys
 
 HEADER = re.compile(r"\[(\d+)/(\d+)\]\s+(\S+):(\d+)")
 
-# telnet's own fixed lines, ignored when deciding if a banner was disclosed
-NOISE = re.compile(
-    r"^(Trying .+\.\.\.|Connected to .+\.|Escape character is .+|"
-    r"telnet: .+|\(no output\))$"
-)
+# Bare version only, e.g. "SSH-2.0-OpenSSH_9.9" -- nothing else on the line
+BARE_SSH_BANNER = re.compile(r"^SSH-2\.0-OpenSSH_\d+\.\d+$")
+
+# Any SSH banner line at all
+SSH_BANNER = re.compile(r"^SSH-2\.0-OpenSSH_\S+")
 
 
-def has_banner(block):
+def has_detailed_disclosure(block):
     for line in block.splitlines():
         line = line.strip()
-        if line and not NOISE.match(line):
+        if SSH_BANNER.match(line) and not BARE_SSH_BANNER.match(line):
             return True
     return False
 
@@ -37,7 +37,7 @@ def main():
     for i, h in enumerate(headers):
         end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
         ip = h.group(3)
-        if has_banner(text[h.end():end]):
+        if has_detailed_disclosure(text[h.end():end]):
             if ip not in disclosed:
                 disclosed.append(ip)
 
@@ -47,3 +47,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
