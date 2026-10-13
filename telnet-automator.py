@@ -49,6 +49,12 @@ def run_telnet(host, port, timeout):
     return buf.decode(errors="replace").replace("\r", "").strip()
 
 
+def emit(line, save_file):
+    print(line)
+    if save_file:
+        save_file.write(line + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run telnet against each host in a list, one after another."
@@ -58,6 +64,8 @@ def main():
     parser.add_argument("port", help="port to connect to")
     parser.add_argument("-t", "--timeout", type=float, default=2,
                         help="seconds to wait per host (default: 2)")
+    parser.add_argument("-s", "--save", metavar="FILE",
+                        help="also save all output to this text file")
     args = parser.parse_args()
 
     if not args.port.isdigit() or not 1 <= int(args.port) <= 65535:
@@ -73,16 +81,22 @@ def main():
     if not hosts:
         sys.exit("[!] No hosts found in the list.")
 
+    save_file = open(args.save, "w", encoding="utf-8") if args.save else None
+
     total = len(hosts)
     try:
         for i, host in enumerate(hosts, 1):
-            print("\n" + "=" * 70)
-            print(f"[{i}/{total}] {host}:{args.port}")
-            print("=" * 70, flush=True)
+            emit("\n" + "=" * 70, save_file)
+            emit(f"[{i}/{total}] {host}:{args.port}", save_file)
+            emit("=" * 70, save_file)
             output = run_telnet(host, args.port, args.timeout)
-            print(output if output else "(no output)")
+            emit(output if output else "(no output)", save_file)
     except KeyboardInterrupt:
         print("\n[!] Interrupted by user.")
+    finally:
+        if save_file:
+            save_file.close()
+            print(f"\n[+] Output saved to {args.save}")
 
 
 if __name__ == "__main__":
