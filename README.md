@@ -4,8 +4,6 @@
 
 A small collection of Python recon/automation utilities for working through a **list** of hosts, ports, or URLs instead of one target at a time — telnet banner grabbing, SSH exposure triage, and web recon scanning (`nuclei` / `dirsearch` / `curl`) across a scope file.
 
-> **⚠️ Disclaimer:** These tools are for use against hosts and networks you are authorized to test. You are responsible for how you use them.
-
 ---
 
 ## Table of Contents
