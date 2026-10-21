@@ -5,23 +5,23 @@ import time
 import argparse
 import os
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="telnet-command-executor.py",
-        description="Connect to a list of hosts on given ports, send 'help', and print the response (telnet-style output).",
-        epilog="Example: python telnet-command-executor.py -i 10.0.0.1,10.0.0.2 -p 22,23",
+        description="Connect to a list of hosts on given ports, send 'help', and print the response.",
+        epilog="Example: python telnet-command-executor.py -i targets.txt"
     )
     parser.add_argument(
-        "-i", "--ip",
-        dest="ips",
-        help="Comma-separated list of IPs/hostnames, OR a path to a file containing "
-             "one IP per line (or comma-separated) (e.g. 10.0.0.1,10.0.0.2 or ips.txt)",
+        "-i", "--input",
+        dest="targets",
+        help="Path to a file containing 'IP PORT' on each line, or a comma-separated string (e.g. '10.0.0.1 80, 10.0.0.2')."
     )
     parser.add_argument(
-        "-p", "--ports",
-        dest="ports",
-        help="Comma-separated list of ports to scan (e.g. 80,443,22)",
+        "-p", "--default-port",
+        dest="default_port",
+        type=int,
+        default=23,
+        help="Default port to use if only an IP is provided (default: 23)",
     )
     parser.add_argument(
         "-c", "--command",
@@ -39,51 +39,53 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_list(prompt_text, cli_value):
-    """Use CLI value if provided, otherwise prompt interactively."""
-    if cli_value:
-        raw = cli_value
-    else:
-        raw = input(prompt_text).strip()
-    if not raw:
-        print("Error: input cannot be empty.")
-        sys.exit(1)
-    return [item.strip() for item in raw.split(',') if item.strip()]
-
-
-def resolve_ips(cli_value):
+def resolve_targets(cli_value, default_port):
     """
-    Resolve the -i/--ip value (or interactive prompt) into a list of IPs.
-    Accepts either:
-      - a comma-separated string of IPs/hostnames, or
-      - a path to a file containing IPs (one per line, and/or comma-separated)
+    Parse targets from a file or string.
+    Expected format per entry: 'IP PORT' or 'IP'.
     """
     if cli_value:
         raw = cli_value.strip()
     else:
-        raw = input("Enter the IP address(es) to scan, or a path to a file: ").strip()
+        raw = input("Enter the path to your target file (or comma-separated targets): ").strip()
 
     if not raw:
         print("Error: input cannot be empty.")
         sys.exit(1)
 
-    # If it's a path to an existing file, read IPs from it
-    if os.path.isfile(raw):
-        ips = []
-        with open(raw, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                # support comma-separated entries within a line too
-                ips.extend(part.strip() for part in line.split(',') if part.strip())
-        if not ips:
-            print(f"Error: no IPs found in file '{raw}'.")
-            sys.exit(1)
-        return ips
+    targets = []
 
-    # Otherwise treat it as a comma-separated list
-    return [item.strip() for item in raw.split(',') if item.strip()]
+    # Check if it's a file
+    if os.path.isfile(raw):
+        with open(raw, 'r') as f:
+            lines = f.readlines()
+    else:
+        # Treat as comma-separated string
+        lines = raw.split(',')
+
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+
+        # Split by whitespace (handles space or tab)
+        parts = line.split()
+        ip = parts[0]
+        port = default_port
+
+        if len(parts) > 1:
+            try:
+                port = int(parts[1])
+            except ValueError:
+                print(f"Warning: Invalid port '{parts[1]}' for IP {ip}. Falling back to default port {default_port}.")
+
+        targets.append((ip, port))
+
+    if not targets:
+        print("Error: No valid targets found.")
+        sys.exit(1)
+
+    return targets
 
 
 def scan_host(ip_address, port, command, timeout):
@@ -136,20 +138,12 @@ def scan_host(ip_address, port, command, timeout):
 def main():
     args = parse_args()
 
-    ip_list = resolve_ips(args.ips)
-
-    ports_raw = get_list("Enter the ports required (comma-separated, e.g., 80,443,22): ", args.ports)
-    try:
-        port_list = [int(p) for p in ports_raw]
-    except ValueError:
-        print("Error: Invalid port format. Please enter numbers separated by commas.")
-        sys.exit(1)
+    # Resolve the targets into a list of (ip, port) tuples
+    target_list = resolve_targets(args.targets, args.default_port)
 
     print("-" * 50)
-
-    for ip_address in ip_list:
-        for port in port_list:
-            scan_host(ip_address, port, args.command, args.timeout)
+    for ip_address, port in target_list:
+        scan_host(ip_address, port, args.command, args.timeout)
 
 
 if __name__ == "__main__":
