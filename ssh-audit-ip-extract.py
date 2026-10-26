@@ -5,12 +5,17 @@ import re
 import sys
 
 TARGET = re.compile(r"^\(gen\)\s+target:\s+(\S+)", re.M)
-EXCEPTION = re.compile(r"^\[exception\]\s+cannot connect to (\S+)", re.M)
+EXCEPTION_NO_TARGET = re.compile(r"^\[exception\]\s+cannot connect to (\S+)", re.M)
+EXCEPTION_IN_BLOCK = re.compile(r"\[exception\]")
 
 ENTRY = re.compile(
     r"\((kex|key|enc|mac)\)(.*?)(?=\((?:kex|key|enc|mac|gen|fin|rec|nfo)\)|\Z)",
     re.S,
 )
+
+
+def strip_ansi(text):
+    return re.sub(r'\x1b\[[0-9;]*m', '', text)
 
 
 def is_weak(block):
@@ -25,6 +30,9 @@ def main():
     except OSError as e:
         sys.exit(f"[!] Cannot read {path}: {e}")
 
+    # Strip ANSI color codes before parsing
+    text = strip_ansi(text)
+
     blocks = re.split(r"-{10,}", text)
 
     weak_ips, pass_ips, unreachable_ips = [], [], []
@@ -33,7 +41,10 @@ def main():
         t = TARGET.search(block)
         if t:
             ip = t.group(1)
-            if is_weak(block):
+            if EXCEPTION_IN_BLOCK.search(block):
+                if ip not in unreachable_ips:
+                    unreachable_ips.append(ip)
+            elif is_weak(block):
                 if ip not in weak_ips:
                     weak_ips.append(ip)
             else:
@@ -41,20 +52,20 @@ def main():
                     pass_ips.append(ip)
             continue
 
-        e = EXCEPTION.search(block)
+        e = EXCEPTION_NO_TARGET.search(block)
         if e:
             ip = e.group(1)
             if ip not in unreachable_ips:
                 unreachable_ips.append(ip)
 
-    print("Weak cipher ips")
-    print("\n".join(weak_ips))
+    print("Weak cipher IPs")
+    print("\n".join(weak_ips) if weak_ips else "(none)")
 
-    print("\nPass ips")
-    print("\n".join(pass_ips))
+    print("\nPass IPs")
+    print("\n".join(pass_ips) if pass_ips else "(none)")
 
-    print("\nNon-reachable ips")
-    print("\n".join(unreachable_ips))
+    print("\nNon-reachable IPs")
+    print("\n".join(unreachable_ips) if unreachable_ips else "(none)")
 
     total = len(weak_ips) + len(pass_ips) + len(unreachable_ips)
     print(
@@ -66,4 +77,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
